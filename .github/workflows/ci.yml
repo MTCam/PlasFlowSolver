@@ -63,7 +63,9 @@ jobs:
       # ---- Fetch Mutation++ source ----
       - name: Clone Mutation++
         run: |
-          git clone --depth 1 https://github.com/mutationpp/Mutationpp.git "${MPP_SRC}"
+          # Use Domenico's fork for now: fixes a slight problem in the base pkg
+          # git clone --depth 1 https://github.com/mutationpp/Mutationpp.git "${MPP_SRC}"
+          git clone --depth 1 https://github.com/domilanza2002/Mutationpp.git "${MPP_SRC}"
 
       - name: Get Mutation++ commit hash
         id: mppsha
@@ -150,9 +152,6 @@ jobs:
           print("MPP_DATA_DIRECTORY:", os.environ.get("MPP_DATA_DIRECTORY"))
           import mutationpp as mpp
           print("mutationpp OK:", mpp.__file__)
-          # Try to import your package; CHANGE the module path below to your real top-level package
-          # import PlasFlowSolver as pfs
-          # print("PlasFlowSolver import OK:", pfs.__file__)
           EOF
 
       # ---- Install your (python-based) requirements (excluding mutationpp pin) ----
