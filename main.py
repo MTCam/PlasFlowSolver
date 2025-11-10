@@ -227,12 +227,17 @@ while (n_case < n_lines):  # Loop through all the cases
                         "the experimental envelope."
                     )
 
-                print("[bounds]   The envelope and this input can be inspected with:")
+                if not diag.heatflux_violation and not diag.pressure_violation:
+                    print("[bounds] User inputs are close, but outside "
+                          "detailed facility envelope.")
+
+                print("[bounds] The envelope and this input can be "
+                      "inspected with:")
                 print(
                     "           python tools/plot-px-envelope.py "
                     "data/ptx_envelope_clean.csv "
                     f"--gas {diag.gas} "
-                    f"--user-gas {plama_gas} "
+                    f"--user-gas {plasma_gas} "
                     f"--user-PkPa {diag.P_kPa:.6g} "
                     f"--user-qWcm2 {diag.q_Wcm2:.6g}"
                 )

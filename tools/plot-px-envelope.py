@@ -147,6 +147,7 @@ def build_hulls(
                 f"[plot] Note: requested gases not found in CSV: {missing}",
                 file=sys.stderr,
             )
+        gases = gas_filter
     hulls: Dict[str, List[Point]] = {}
     for gas in gases:
         pts = all_pts[gas]
