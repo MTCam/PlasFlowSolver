@@ -21,6 +21,7 @@ jobs:
       MPP_SRC: ${{ github.workspace }}/Mutationpp
       MPP_BUILD: ${{ github.workspace }}/build_mpp
       MPP_PREFIX: ${{ github.workspace }}/thirdparty
+      MPP_PY_PREFIX: ${{ github.workspace }}/install/mpp-py
       CMAKE_BUILD_TYPE: Release
 
       # Make binary wheels preferred for speed (retry falls back to source)
@@ -111,47 +112,88 @@ jobs:
           # Help build systems find installed Mutation++ headers/libs
           echo "CMAKE_PREFIX_PATH=${MPP_PREFIX}:${CMAKE_PREFIX_PATH}" >> "$GITHUB_ENV"
 
-      - name: Print Mutation++ env (debug)
+      # ---- Python tooling (wheel build helpers) ----
+      - name: Upgrade pip, setuptools, wheel
+        run: python -m pip install -U pip setuptools wheel scikit-build ninja matplotlib
+
+      - name: Cache Mutation++ Python bindings
+        id: cache-mpp-py
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.MPP_PY_PREFIX }}
+          key: ${{ runner.os }}-py-${{ matrix.python-version }}-mpp-${{ steps.mppsha.outputs.mpp_sha }}
+
+      - name: Install Mutation++ Python bindings
+        if: ${{ steps.cache-mpp-py.outputs.cache-hit != 'true' }}
+        env:
+          # Needed to work around project settings
+          CMAKE_ARGS: -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        run: |
+          set -eux
+          cmake --version
+
+          # Make sure the target directory exists
+          mkdir -p "${MPP_PY_PREFIX}"
+
+          # First try with normal build isolation
+          set +e
+          python3 -m pip install "${MPP_SRC}" \
+            --target "${MPP_PY_PREFIX}" \
+            --verbose
+          status=$?
+          set -e
+
+          # If that fails, try no build isolation
+          if [ $status -ne 0 ]; then
+            echo "First pip install attempt failed with exit code $status. Retrying with --no-build-isolation..."
+            python3 -m pip install "${MPP_SRC}" \
+              --no-build-isolation \
+              --target "${MPP_PY_PREFIX}" \
+              --verbose
+          fi
+
+      - name: Configure Python path for Mutation++
+        run: |
+          set -eux
+          echo "PYTHONPATH=${MPP_PY_PREFIX}:${PYTHONPATH:-}" >> "$GITHUB_ENV"
+
+      - name: Verify Mutation++ Python import
+        run: |
+          set -eux
+          python3 - <<'EOF'
+          import os
+          print("MPP_DIRECTORY:", os.environ.get("MPP_DIRECTORY"))
+          print("MPP_DATA_DIRECTORY:", os.environ.get("MPP_DATA_DIRECTORY"))
+
+          import mutationpp as mpp
+          print("mutationpp imported OK from:", mpp.__file__)
+          EOF
+
+      - name: Print Mutation++ environment
         run: |
           echo "MPP_DIRECTORY=$MPP_DIRECTORY"
           echo "MPP_DATA_DIRECTORY=$MPP_DATA_DIRECTORY"
           echo "Using libdir: $MPP_LIBDIR"
           echo "PATH=$PATH"
-          if [[ "$RUNNER_OS" == "Linux" ]]; then
-            echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
-          else
-            echo "DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH"
-          fi
-          echo "CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH"
-          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+          echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}"
+          echo "CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH:-}"
+          echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH:-}"
+          echo "Python executable: $(command -v python3)"
+          python3 -V || true
+          echo "Python sys.path:"
+          python3 - <<'EOF' || true
+          import sys
+          for p in sys.path:
+              print("  ", p)
+          EOF
 
-      # ---- Python tooling (wheel build helpers) ----
-      - name: Upgrade pip, setuptools, wheel
-        run: python -m pip install -U pip setuptools wheel scikit-build ninja matplotlib
-
-      # ---- Install Mutation++ Python package (editable) ----
-      # Do this BEFORE your requirements, so Mutation++ headers/libs are present
-      # and bindings can resolve them. We still exclude mutationpp from the later requirements step.
-      - name: Install Mutation++ Python bindings
-        env:
-          CMAKE_ARGS: -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-        run: |
-          cmake --version
-          pip install "${MPP_SRC}" --verbose || (
-            echo "Retrying w/ no build isolation..."
-            pip install --no-build-isolation "${{ env.MPP_SRC }}" --verbose
-          )
-
-      # ---- Smoke-check Mutation++ import (optional but helpful) ----
-      - name: Verify mutationpp import
-        run: |
-          echo "Running smoke import for Mutation++ python app."
-          python - <<'EOF'
-          import os
-          print("MPP_DIRECTORY:", os.environ.get("MPP_DIRECTORY"))
-          print("MPP_DATA_DIRECTORY:", os.environ.get("MPP_DATA_DIRECTORY"))
-          import mutationpp as mpp
-          print("mutationpp OK:", mpp.__file__)
+          echo "Installed mutationpp info (if available):"
+          python3 - <<'EOF' || true
+          try:
+              import mutationpp as mpp
+              print("  mutationpp imported OK from:", mpp.__file__)
+          except Exception as e:
+              print("  mutationpp import failed:", e)
           EOF
 
       # ---- Install your (python-based) requirements (excluding mutationpp pin) ----
