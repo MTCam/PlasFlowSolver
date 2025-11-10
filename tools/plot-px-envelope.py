@@ -7,12 +7,26 @@ import sys
 from collections import defaultdict
 from typing import Dict, List, Tuple, Optional
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
+
+
+def ensure_matplotlib():
+    """Try to import matplotlib, with a friendly diagnostic on failure."""
+    try:
+        import matplotlib.pyplot as plt  # noqa: F401
+    except ModuleNotFoundError:
+        print(
+            "System is missing `matplotlib` package required for plotting.\n"
+            "You can install it with:\n"
+            "    python -m pip install matplotlib\n"
+        )
+        raise SystemExit(1)
+
 
 Point = Tuple[float, float]  # (P_kPa, q_Wcm2)
 
 
-# ---------- simple resolver for mechanism-like gas inputs -> facility names ----------
+# Resolve user gas naming
 def _pick_canonical(target: str, available: List[str]) -> Optional[str]:
     t = target.lower()
     for name in available:
@@ -53,7 +67,7 @@ def _cross(o: Point, a: Point, b: Point) -> float:
 
 
 def convex_hull(points: List[Point]) -> List[Point]:
-    """Monotone chain convex hull; returns CCW hull without duplicate last point."""
+    """Returns CCW hull without duplicate last point."""
     pts = sorted(set(points))
     if len(pts) <= 2:
         return pts
@@ -73,7 +87,8 @@ def convex_hull(points: List[Point]) -> List[Point]:
 def point_on_segment(p: Point, a: Point, b: Point, eps: float = 1e-12) -> bool:
     (x, y), (x1, y1), (x2, y2) = p, a, b
     area2 = (x2 - x1) * (y - y1) - (y2 - y1) * (x - x1)
-    if abs(area2) > eps * max(1.0, abs(x), abs(y), abs(x1), abs(y1), abs(x2), abs(y2)):
+    if abs(area2) > eps * max(1.0, abs(x), abs(y),
+                              abs(x1), abs(y1), abs(x2), abs(y2)):
         return False
     return (
         min(x1, x2) - eps <= x <= max(x1, x2) + eps
@@ -81,7 +96,8 @@ def point_on_segment(p: Point, a: Point, b: Point, eps: float = 1e-12) -> bool:
     )
 
 
-def point_in_polygon(point: Point, poly: List[Point], eps: float = 1e-12) -> bool:
+def point_in_polygon(point: Point, poly: List[Point],
+                     eps: float = 1e-12) -> bool:
     """Return True if point is inside or on the boundary of poly."""
     x, y = point
     n = len(poly)
@@ -115,7 +131,8 @@ def read_facility_csv(path: str) -> Dict[str, List[Point]]:
     Comment lines starting with '#' are ignored.
     """
     with open(path, newline="") as f:
-        lines = [ln for ln in f.read().splitlines() if not ln.lstrip().startswith("#")]
+        lines = [ln for ln in f.read().splitlines()
+                 if not ln.lstrip().startswith("#")]
     rdr = csv.DictReader(lines)
     req = {"plasma gas", "stagnation pressure [kPa]", "heat flux [W/cm^2]"}
     if not rdr.fieldnames or not req.issubset(set(rdr.fieldnames)):
@@ -193,6 +210,10 @@ def plot_bounds(
     title: Optional[str],
     out: Optional[str],
 ) -> None:
+
+    ensure_matplotlib()
+    import matplotlib.pyplot as plt
+
     plt.figure(figsize=(8, 6))
 
     for gas in gases:
@@ -261,31 +282,39 @@ def main():
             "  plasma gas, stagnation pressure [kPa], heat flux [W/cm^2]\n\n"
             "Typical usage:\n"
             "  * Plot all gases with shaded polygons:\n"
-            "      python tools/plot-px-envelope.py Envelope/CleanCSV/ptx_envelope_clean.csv\n"
+            "      python tools/plot-px-envelope.py Envelope/"
+            "CleanCSV/ptx_envelope_clean.csv\n"
             "  * Plot only N2 and overlay a user point:\n"
-            "      python tools/plot-px-envelope.py Envelope/CleanCSV/ptx_envelope_clean.csv \\\n"
-            "          --gas N2 --user-gas nitrogen5 --user-PkPa 5.0 --user-qWcm2 150\n"
+            "      python tools/plot-px-envelope.py Envelope/CleanCSV/"
+            "ptx_envelope_clean.csv \\\n"
+            "          --gas N2 --user-gas nitrogen5 --user-PkPa 5.0 "
+            "--user-qWcm2 150\n"
             "  * Dump polygon vertices for Air to a CSV:\n"
-            "      python tools/plot-px-envelope.py Envelope/CleanCSV/ptx_envelope_clean.csv \\\n"
-            "          --gas Air --dump --dump-file air_polygon.csv --no-plot\n"
+            "      python tools/plot-px-envelope.py Envelope/CleanCSV/"
+            "ptx_envelope_clean.csv \\\n"
+            "          --gas Air --dump --dump-file air_polygon.csv "
+            "--no-plot\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("csv", help="Bounds CSV path (facility schema).")
     parser.add_argument(
         "--gas",
-        help="Comma-separated gas list, e.g. Air,N2,CO2 (default: all gases in CSV).",
+        help="Comma-separated gas list, e.g. Air,N2,CO2 "
+        "(default: all gases in CSV).",
     )
     parser.add_argument(
         "--out",
         help="Save figure to this file instead of showing (e.g. bounds.png).",
     )
-    parser.add_argument("--title", help="Figure title (default: 'Facility Bounds').")
+    parser.add_argument("--title", help="Figure title (default: "
+                        "'Facility Bounds').")
     parser.add_argument(
         "--no-points", action="store_true", help="Hide raw sample points."
     )
     parser.add_argument(
-        "--no-fill", action="store_true", help="Do not shade polygons (lines only)."
+        "--no-fill", action="store_true", help="Do not shade polygons "
+        "(lines only)."
     )
     parser.add_argument(
         "--no-plot",
@@ -295,7 +324,8 @@ def main():
     parser.add_argument(
         "--dump",
         action="store_true",
-        help="Dump ordered polygon vertices as CSV to stdout (or --dump-file).",
+        help="Dump ordered polygon vertices as CSV to stdout "
+        "(or --dump-file).",
     )
     parser.add_argument(
         "--dump-file",
