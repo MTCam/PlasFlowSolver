@@ -187,10 +187,9 @@ while (n_case < n_lines):  # Loop through all the cases
         else:
             print(f"Checking input for '{plasma_gas}' "
                   f"against facility envelope for '{facility_gas}'.")
-            #if not contains(PTXBounds, facility_gas, P_stag, q_target):
             pstag = P_stag/1000.0
             qtarg = q_target/10000.0
-            diag = envelope_diagnostics_kpa_wcm2(gas_poly, P_kPa, q_Wcm2)
+            diag = envelope_diagnostics_kpa_wcm2(gas_poly, pstag, qtarg)
             if diag.inside_polygon:
                 print("Inputs are within facility testing envelope.")
             else:
@@ -233,7 +232,7 @@ while (n_case < n_lines):  # Loop through all the cases
                     "           python tools/plot-px-envelope.py "
                     "data/ptx_envelope_clean.csv "
                     f"--gas {diag.gas} "
-                    f"--user-gas {mixture_name} "
+                    f"--user-gas {plama_gas} "
                     f"--user-PkPa {diag.P_kPa:.6g} "
                     f"--user-qWcm2 {diag.q_Wcm2:.6g}"
                 )
