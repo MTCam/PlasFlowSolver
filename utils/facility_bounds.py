@@ -19,6 +19,26 @@ class GasPolygon:
         return min(xs), min(ys), max(xs), max(ys)
 
 
+@dataclass
+class EnvelopeDiagnostics:
+    gas: str
+    inside_polygon: bool
+
+    pressure_violation: bool
+    heatflux_violation: bool
+
+    P_kPa: float
+    q_Wcm2: float
+
+    Pmin_kPa: float
+    Pmax_kPa: float
+    qmin_Wcm2: float
+    qmax_Wcm2: float
+
+    dP_kPa: float      # how far outside in kPa (0 if not violated)
+    dq_Wcm2: float     # how far outside in W/cm^2 (0 if not violated)
+
+
 def resolve_gas_name(input_gas_name: str) -> str:
     gas_name_map = {"air_11": "Air",
                     "air_13": "Air",
@@ -247,6 +267,61 @@ def point_in_polygon(point: Point, poly: List[Point],
         if xint > x + eps:
             inside = not inside
     return inside
+
+
+def envelope_diagnostics_kpa_wcm2(
+    gas_poly: "GasPolygon",
+    P_kPa: float,
+    q_Wcm2: float,
+) -> EnvelopeDiagnostics:
+    """
+    Diagnose how a (P, q) point sits relative to a gas polygon.
+
+    Inputs P_kPa, q_Wcm2 are in facility units.
+    gas_poly.vertices are in SI units (Pa, W/m^2).
+    """
+    # Convert user point to SI for geometric checks
+    P_SI = P_kPa * 1.0e3
+    q_SI = q_Wcm2 * 1.0e4
+
+    xs = [p for p, _ in gas_poly.vertices]
+    ys = [qq for _, qq in gas_poly.vertices]
+    Pmin_SI, Pmax_SI = min(xs), max(xs)
+    qmin_SI, qmax_SI = min(ys), max(ys)
+
+    inside = point_in_polygon((P_SI, q_SI), gas_poly.vertices)
+
+    P_violation = P_SI < Pmin_SI or P_SI > Pmax_SI
+    q_violation = q_SI < qmin_SI or q_SI > qmax_SI
+
+    dP_kPa = 0.0
+    if P_violation:
+        if P_SI < Pmin_SI:
+            dP_kPa = (Pmin_SI - P_SI) / 1.0e3
+        else:
+            dP_kPa = (P_SI - Pmax_SI) / 1.0e3
+
+    dq_Wcm2 = 0.0
+    if q_violation:
+        if q_SI < qmin_SI:
+            dq_Wcm2 = (qmin_SI - q_SI) / 1.0e4
+        else:
+            dq_Wcm2 = (q_SI - qmax_SI) / 1.0e4
+
+    return EnvelopeDiagnostics(
+        gas=gas_poly.gas,
+        inside_polygon=inside,
+        pressure_violation=P_violation,
+        heatflux_violation=q_violation,
+        P_kPa=P_kPa,
+        q_Wcm2=q_Wcm2,
+        Pmin_kPa=Pmin_SI / 1.0e3,
+        Pmax_kPa=Pmax_SI / 1.0e3,
+        qmin_Wcm2=qmin_SI / 1.0e4,
+        qmax_Wcm2=qmax_SI / 1.0e4,
+        dP_kPa=dP_kPa,
+        dq_Wcm2=dq_Wcm2,
+    )
 
 
 def contains(db: Dict[str, GasPolygon], gas: str, P_Pa: float, q_W_m2: float,
