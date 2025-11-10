@@ -147,12 +147,104 @@ while (n_case < n_lines):  # Loop through all the cases
     P_stag = inputs_object.P_stag
     q_target = inputs_object.q_target
     mixture_name = inputs_object.mixture_name
+    plasma_gas = df_object.plasma_gas
+
+    from utils.facility_bounds import (
+        load_bounds_csv,
+        envelope_diagnostics_kpa_wcm2,
+        resolve_gas_name
+    )
+    PTXBounds = None
+    try:
+        # Needs to handle unit mismatch
+        PTXBounds = load_bounds_csv(
+            "data/ptx_envelope_clean.csv", gas_col="plasma gas",
+            p_col="stagnation pressure [kPa]", q_col="heat flux [W/cm^2]",
+            pressure_unit="kPa", heatflux_unit="W/cm^2",
+            polygon_col=None,        # optional region delimiting
+            vertex_id_col=None,      # optional vertex ordering
+        )
+    except Exception as e:
+        print("WARNING: Unable to load PTX facility testing envelope data: "
+              f"{e}")
+
     # Print the data for the current case
     print("Comment: " + comment)
     print("Static pressure: " + str(P) + " Pa")
     print("Stagnation pressure: " + str(P_stag) + " Pa")
     print("Target heat flux: " + str(q_target) + " W/m^2")
     print("Mixture name: " + mixture_name)
+
+    facility_gas = resolve_gas_name(plasma_gas)
+    if facility_gas is None:
+        print(f"[bounds] WARNING: Did not find facility data for '{plasma_gas}'.")
+
+    if PTXBounds is not None and facility_gas is not None:
+        gas_poly = PTXBounds.get(facility_gas)
+        if gas_poly is None:
+            print("[bounds] WARNING: Facility envelope data did not contain polygon "
+                  f"for `{facility_gas}`. Skipping envelope diagnostics.")
+        else:
+            print(f"[bounds] Checking input for '{plasma_gas}' "
+                  f"against facility envelope for '{facility_gas}'.")
+            pstag = P_stag/1000.0
+            qtarg = q_target/10000.0
+            diag = envelope_diagnostics_kpa_wcm2(gas_poly, pstag, qtarg)
+            if diag.inside_polygon:
+                print("[bounds] Inputs are within facility testing envelope.")
+            else:
+                print("---------------------------------------")
+                print(f"[bounds] WARNING: ({pstag:.3g} [kPa], "
+                      f"{qtarg:.3g} [W/cm^2]) "
+                      f"for '{plasma_gas}' is outside PTX tested envelope for "
+                      f"'{facility_gas}'.")
+                print(
+                    f"[bounds] Facility bounds for {diag.gas}:"
+                    f"Stagnation Pressure [{diag.Pmin_kPa:.3g}, "
+                    f"{diag.Pmax_kPa:.3g}] kPa, "
+                    f"Heat Flux [{diag.qmin_Wcm2:.3g}, "
+                    f"{diag.qmax_Wcm2:.3g}] W/cm^2."
+                )
+
+                if diag.pressure_violation:
+                    direction = (
+                        "below" if diag.P_kPa < diag.Pmin_kPa else "above"
+                    )
+                    print(
+                        f"[bounds]   Specified stagnation pressure "
+                        f"({diag.P_kPa:.3g} kPa) is {diag.dP_kPa:.3g} kPa "
+                        f"{direction} the experimental envelope."
+                    )
+
+                if diag.heatflux_violation:
+                    direction = (
+                        "below" if diag.q_Wcm2 < diag.qmin_Wcm2 else "above"
+                    )
+                    print(
+                        f"[bounds]   Specified heat flux "
+                        f"({diag.q_Wcm2:.3g} W/cm^2) is "
+                        f"{diag.dq_Wcm2:.3g} W/cm^2 {direction} "
+                        "the experimental envelope."
+                    )
+
+                if not diag.heatflux_violation and not diag.pressure_violation:
+                    print("[bounds] User inputs are close, but outside "
+                          "detailed facility envelope.")
+
+                print("[bounds] The envelope and this input can be "
+                      "inspected with:")
+                print(
+                    "           python tools/plot-px-envelope.py "
+                    "data/ptx_envelope_clean.csv "
+                    f"--gas {diag.gas} "
+                    f"--user-gas {plasma_gas} "
+                    f"--user-PkPa {diag.P_kPa:.6g} "
+                    f"--user-qWcm2 {diag.q_Wcm2:.6g}"
+                )
+                print("---------------------------------------")
+    else:
+        print("[bounds] WARNING: Skipping envelope diagnostics.")
+
     # Premilimary operation:
     if (probes_object.barker_type == 0):
         n_eq = 3 
@@ -327,6 +419,9 @@ while (n_case < n_lines):  # Loop through all the cases
         rho_out, T_out, h_out, u_out, a_out, M_out, T_t_out, h_t_out, P_t_out,
         Re_out, Kn_out, warnings_out, res_out, rho, T, h, u, a, M, T_t, h_t, P_t, Re, Kn, warnings, cnv
     )
+    if (M_out[0] >= 1.):
+        print(f"WARNING: Output freestream Mach number ({M_out[0]}) violates "
+              "subsonic model assumptions.")
     species_names_out[n_case] = species_names
     species_Y_out[n_case] = species_Y
     print("Executing case number " + str(n_case) + "...done")
