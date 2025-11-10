@@ -177,24 +177,24 @@ while (n_case < n_lines):  # Loop through all the cases
 
     facility_gas = resolve_gas_name(plasma_gas)
     if facility_gas is None:
-        print(f"WARNING: Did not find facility data for '{plasma_gas}'.")
+        print(f"[bounds] WARNING: Did not find facility data for '{plasma_gas}'.")
 
     if PTXBounds is not None and facility_gas is not None:
         gas_poly = PTXBounds.get(facility_gas)
         if gas_poly is None:
-            print("WARNING: Facility envelope data did not contain polygon "
+            print("[bounds] WARNING: Facility envelope data did not contain polygon "
                   f"for `{facility_gas}`. Skipping envelope diagnostics.")
         else:
-            print(f"Checking input for '{plasma_gas}' "
+            print(f"[bounds] Checking input for '{plasma_gas}' "
                   f"against facility envelope for '{facility_gas}'.")
             pstag = P_stag/1000.0
             qtarg = q_target/10000.0
             diag = envelope_diagnostics_kpa_wcm2(gas_poly, pstag, qtarg)
             if diag.inside_polygon:
-                print("Inputs are within facility testing envelope.")
+                print("[bounds] Inputs are within facility testing envelope.")
             else:
                 print("---------------------------------------")
-                print(f"WARNING: ({pstag:.3g} [kPa], "
+                print(f"[bounds] WARNING: ({pstag:.3g} [kPa], "
                       f"{qtarg:.3g} [W/cm^2]) "
                       f"for '{plasma_gas}' is outside PTX tested envelope for "
                       f"'{facility_gas}'.")
@@ -243,7 +243,7 @@ while (n_case < n_lines):  # Loop through all the cases
                 )
                 print("---------------------------------------")
     else:
-        print("WARNING: Skipping envelope diagnostics.")
+        print("[bounds] WARNING: Skipping envelope diagnostics.")
 
     # Premilimary operation:
     if (probes_object.barker_type == 0):
