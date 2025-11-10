@@ -121,7 +121,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.MPP_PY_PREFIX }}
-          key: ${{ runner.os }}-py-${{ matrix.python-version }}-mpp-${{ hashFiles('Mutationpp/**') }}
+          key: ${{ runner.os }}-py-${{ matrix.python-version }}-mpp-${{ steps.mppsha.outputs.mpp_sha }}
 
       - name: Install Mutation++ Python bindings
         if: ${{ steps.cache-mpp-py.outputs.cache-hit != 'true' }}
