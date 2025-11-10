@@ -151,7 +151,7 @@ while (n_case < n_lines):  # Loop through all the cases
 
     from utils.facility_bounds import (
         load_bounds_csv,
-        contains,
+        envelope_diagnostics_kpa_wcm2,
         resolve_gas_name
     )
     PTXBounds = None
@@ -177,19 +177,73 @@ while (n_case < n_lines):  # Loop through all the cases
 
     facility_gas = resolve_gas_name(plasma_gas)
     if facility_gas is None:
-        print(f"WARNING: Did not find facility data for '{plasma_gas}', "
-              "skipping envelope check.")
+        print(f"[bounds] WARNING: Did not find facility data for '{plasma_gas}'.")
 
     if PTXBounds is not None and facility_gas is not None:
-        print(f"Checking input for '{plasma_gas}' "
-              f"against facility envelope for '{facility_gas}'.")
-        if not contains(PTXBounds, facility_gas, P_stag, q_target):
-            print(f"WARNING: ({P_stag/1000.:.3g} [kPa], "
-                  f"{q_target/10000.:.3g} [W/cm^2]) "
-                  f"for '{plasma_gas}' is outside PTX tested envelope for "
-                  f"'{facility_gas}'.")
+        gas_poly = PTXBounds.get(facility_gas)
+        if gas_poly is None:
+            print("[bounds] WARNING: Facility envelope data did not contain polygon "
+                  f"for `{facility_gas}`. Skipping envelope diagnostics.")
         else:
-            print("Inputs are within facility testing envelope.")
+            print(f"[bounds] Checking input for '{plasma_gas}' "
+                  f"against facility envelope for '{facility_gas}'.")
+            pstag = P_stag/1000.0
+            qtarg = q_target/10000.0
+            diag = envelope_diagnostics_kpa_wcm2(gas_poly, pstag, qtarg)
+            if diag.inside_polygon:
+                print("[bounds] Inputs are within facility testing envelope.")
+            else:
+                print("---------------------------------------")
+                print(f"[bounds] WARNING: ({pstag:.3g} [kPa], "
+                      f"{qtarg:.3g} [W/cm^2]) "
+                      f"for '{plasma_gas}' is outside PTX tested envelope for "
+                      f"'{facility_gas}'.")
+                print(
+                    f"[bounds] Facility bounds for {diag.gas}:"
+                    f"Stagnation Pressure [{diag.Pmin_kPa:.3g}, "
+                    f"{diag.Pmax_kPa:.3g}] kPa, "
+                    f"Heat Flux [{diag.qmin_Wcm2:.3g}, "
+                    f"{diag.qmax_Wcm2:.3g}] W/cm^2."
+                )
+
+                if diag.pressure_violation:
+                    direction = (
+                        "below" if diag.P_kPa < diag.Pmin_kPa else "above"
+                    )
+                    print(
+                        f"[bounds]   Specified stagnation pressure "
+                        f"({diag.P_kPa:.3g} kPa) is {diag.dP_kPa:.3g} kPa "
+                        f"{direction} the experimental envelope."
+                    )
+
+                if diag.heatflux_violation:
+                    direction = (
+                        "below" if diag.q_Wcm2 < diag.qmin_Wcm2 else "above"
+                    )
+                    print(
+                        f"[bounds]   Specified heat flux "
+                        f"({diag.q_Wcm2:.3g} W/cm^2) is "
+                        f"{diag.dq_Wcm2:.3g} W/cm^2 {direction} "
+                        "the experimental envelope."
+                    )
+
+                if not diag.heatflux_violation and not diag.pressure_violation:
+                    print("[bounds] User inputs are close, but outside "
+                          "detailed facility envelope.")
+
+                print("[bounds] The envelope and this input can be "
+                      "inspected with:")
+                print(
+                    "           python tools/plot-px-envelope.py "
+                    "data/ptx_envelope_clean.csv "
+                    f"--gas {diag.gas} "
+                    f"--user-gas {plasma_gas} "
+                    f"--user-PkPa {diag.P_kPa:.6g} "
+                    f"--user-qWcm2 {diag.q_Wcm2:.6g}"
+                )
+                print("---------------------------------------")
+    else:
+        print("[bounds] WARNING: Skipping envelope diagnostics.")
 
     # Premilimary operation:
     if (probes_object.barker_type == 0):
