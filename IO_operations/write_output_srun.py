@@ -75,7 +75,10 @@ def write_output_srun(output_filename, out_obj):
     file.write("Species mass fraction composition:\n")
     for i in range(len(species_names_out)):
         file.write(species_names_out[i] + ": " + str(species_Y_out[i]) + "\n")
-    file.write("warnings_out: " + str(warnings_out[0]) + "\n")
+    if warnings_out:
+        file.write("warnings_out: \n")
+        for warning in warnings_out:
+            file.write(warning+"\n")
     file.write("res_out: " + str(res_out[0]) + "\n")
     file.close()
 #.................................................

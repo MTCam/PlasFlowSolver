@@ -126,7 +126,11 @@ def append_output_case(
     P_t_out.append(P_t)
     Re_out.append(Re)
     Kn_out.append(Kn)
-    warnings_out.append(warnings)
+    if warnings:
+        warnout = "|".join(warnings)
+    else:
+        warnout = "None"
+    warnings_out.append(warnout)
     res_out.append(res)
     return (
         rho_out, T_out, h_out, u_out, a_out, M_out, T_t_out,

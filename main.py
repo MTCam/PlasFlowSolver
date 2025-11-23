@@ -147,12 +147,20 @@ while (n_case < n_lines):  # Loop through all the cases
     P_stag = inputs_object.P_stag
     q_target = inputs_object.q_target
     mixture_name = inputs_object.mixture_name
+    plasma_gas = df_object.plasma_gas
+
     # Print the data for the current case
     print("Comment: " + comment)
     print("Static pressure: " + str(P) + " Pa")
     print("Stagnation pressure: " + str(P_stag) + " Pa")
     print("Target heat flux: " + str(q_target) + " W/m^2")
     print("Mixture name: " + mixture_name)
+
+    from utils.facility_bounds import check_ptx_envelope
+    ptx_bounds_warnings = check_ptx_envelope(program_constants.PTXBounds.BOUNDS_CSV_FILE,
+                                             plasma_gas, P_stag, q_target)
+    warnings.extend(ptx_bounds_warnings)
+
     # Premilimary operation:
     if (probes_object.barker_type == 0):
         n_eq = 3 
@@ -320,6 +328,13 @@ while (n_case < n_lines):  # Loop through all the cases
     else:
         has_converged_out.append("no")
         print("Iteration has not converged.")
+
+    if (M >= 1.):
+        warning_msg = (f"WARNING: Output freestream Mach number ({M}) violates " 
+                       "subsonic model assumptions.")
+        print(warning_msg)
+        warnings.append(warning_msg)
+
     (
         rho_out, T_out, h_out, u_out, a_out, M_out, T_t_out, h_t_out, P_t_out,
         Re_out, Kn_out, warnings_out, res_out

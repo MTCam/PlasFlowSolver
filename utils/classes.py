@@ -89,6 +89,27 @@ class ProgramConstants:
         # Retriever helper:
         self.RetrieverHelper = SimpleNamespace()
         self.RetrieverHelper.P_TOL = 1e-3  # Tolerance for the pressure difference, P_stag = P + P_dyn
+        # Mapping PlasmaGasName to MixtureName
+        self.RetrieverHelper.PLASMA_GAS_TO_MIXTURE = {"co2": "CO2_8",
+                                                      "CO2": "CO2_8",
+                                                      "n2": "nitrogen2",
+                                                      "N2": "nitrogen2"}
+        # PTX experimental envelope handling constants
+        self.PTXBounds = SimpleNamespace()
+        self.PTXBounds.BOUNDS_CSV_FILE = "data/ptx_envelope_clean.csv"
+        self.PTXBounds.GAS_NAME_COLUMN = "plasma gas"
+        self.PTXBounds.PRESSURE_COLUMN = "stagnation pressure [kPa]"
+        self.PTXBounds.HEATFLUX_COLUMN = "heat flux [W/cm^2]"
+        self.PTXBounds.PRESSURE_UNITS = "kPa"
+        self.PTXBounds.HEATFLUX_UNITS = "W/cm^2"
+        self.PTXBounds.GAS_NAME_MAP = {"air_11": "Air",
+                                       "air_13": "Air",
+                                       "air_5": "Air",
+                                       "nitrogen2": "N2",
+                                       "nitrogen5": "N2",
+                                       "test_N2": "N2",
+                                       "CO2_8": "CO2"}
+
 #.................................................
 class DatabaseSettings:
     """This class contains the database settings read from file.
